@@ -24,4 +24,4 @@ After downloading and extracting the dataset, run the dataset_transformation.ipy
 
 ## Siamese network training (v0.1)
 
-Run the train_cars.ipynb Jupyter Notebook to train the network 
+Run the train_cars.ipynb Jupyter Notebook to train the network . Still under development
