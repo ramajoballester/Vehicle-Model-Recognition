@@ -9,7 +9,7 @@ Clone this repository in your workspace
 git clone https://github.com/ramajoballester/Vehicle-Model-Recognition.git
 ```
 
-Install the python packages required
+Install the required python packages
 
 ```
 cd Vehicle-Model-Recognition/
