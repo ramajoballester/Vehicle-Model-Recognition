@@ -101,7 +101,8 @@ def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, i
         for each_img in train_img_filename:
             img = cv2.imread(each_img)
             # OpenCV loads images to BGR by default (modify this to RGB)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+#             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             csv_filename = each_img.split('.')[0] + '.csv'
             with open(csv_filename) as csvfile:
                 reader = csv.reader(csvfile)
@@ -118,7 +119,8 @@ def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, i
         for each_img in test_img_filename:
             img = cv2.imread(each_img)
             # OpenCV loads images to BGR by default (modify this to RGB)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+#             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             
             csv_filename = each_img.split('.')[0] + '.csv'
             with open(csv_filename) as csvfile:
