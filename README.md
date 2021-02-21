@@ -1,4 +1,4 @@
-# Vehicle-Model-Recognition
+# Vehicle-Model-Recognition (v0.1)
 Vehicle model detection using deep siamese networks
 
 ## Installation
@@ -20,12 +20,12 @@ Download the [Stanford Cars Dataset](https://ai.stanford.edu/~jkrause/cars/car_d
 
 ## Dataset preparation 
 
-After downloading and extracting the dataset, run the dataset_transformation.ipynb Jupyter Notebook to create the dataset directory.
+After downloading and extracting the dataset, run the pydataset_transformation.py Python script to create the dataset directory.
 
-## Siamese network training (v0.1)
+## Siamese network training
 
-Run the train_cars.ipynb Jupyter Notebook to train the network . Still under development
+Run the train_cars.ipynb Jupyter Notebook to train the network. Still under development
 
-## Python version (v0.1)
+## Python version
 
-Run the pytrain_cars_classification.py script
+Run the pytrain_cars_classification.py script to train the network.
