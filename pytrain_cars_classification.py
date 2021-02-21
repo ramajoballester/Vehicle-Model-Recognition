@@ -25,8 +25,8 @@ print('Root directory: %s \n' % ROOT_DIR)
 LOGS_DIR = os.path.join(ROOT_DIR, 'logs/fit', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 # Dataset parameters
-total_classes = 150
-elements_per_class = 100
+total_classes = 10
+elements_per_class = 10
 training_split = 0.75
 img_resolution = (224, 224)
 
