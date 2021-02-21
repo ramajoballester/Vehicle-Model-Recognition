@@ -41,7 +41,7 @@ car_test = np.array([img_labels[i][6][0][0] for i in range(len(img_labels))])
 os.makedirs('dataset')
 os.chdir('dataset')
 for each in labels:
-    os.makedirs(each[0]) if each[0] != 'Ram C/V Cargo Van Minivan 2012' else 'Ram CV Cargo Van Minivan 2012'
+    os.makedirs(each[0]) if each[0] != 'Ram C/V Cargo Van Minivan 2012' else os.makedirs('Ram CV Cargo Van Minivan 2012')
 
 # Create filenames
 img_filenames = [names[i].split('/')[-1] for i in range(len(names))]
