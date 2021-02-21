@@ -74,4 +74,4 @@ model.compile(loss='categorical_crossentropy', optimizer="adam",
 tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=LOGS_DIR, histogram_freq=1)
 
 history = model.fit(trainX, oh_train,validation_data=(trainX, oh_train),
-                    batch_size=8, epochs=50, callbacks=[tensorboard_callback])
+                    batch_size=4, epochs=50, callbacks=[tensorboard_callback])
