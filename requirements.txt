@@ -3,3 +3,6 @@ numpy
 scipy
 matplotlib
 opencv-python
+datetime
+tensorboard
+tensorflow_addons

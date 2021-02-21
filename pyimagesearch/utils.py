@@ -91,7 +91,11 @@ def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, i
     for each_dir in labels:
         os.chdir(each_dir)
         img_filenames = [file for file in os.listdir('./') if file.endswith('.jpg')]
-        img_filenames = random.sample(img_filenames, elements_per_class)
+        max_elements_per_class = len(img_filenames)
+        if max_elements_per_class < elements_per_class:
+            img_filenames = random.sample(img_filenames, max_elements_per_class)
+        else:
+            img_filenames = random.sample(img_filenames, elements_per_class)
         random.shuffle(img_filenames)
         n = len(img_filenames)
         split = round(training_split * n)

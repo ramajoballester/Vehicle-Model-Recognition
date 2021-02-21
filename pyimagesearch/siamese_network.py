@@ -44,9 +44,9 @@ def build_vgg16(inputShape, embeddingDim=128):
     x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
     x = MaxPooling2D(pool_size=(2, 2))(x)
 
-#     x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
-#     x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
-#     x = MaxPooling2D(pool_size=(2, 2))(x)
+    x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
+    x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
 
     x = Flatten()(x)
     x = Dense(4096, activation='relu')(x)
