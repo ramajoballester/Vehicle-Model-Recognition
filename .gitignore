@@ -1,3 +1,4 @@
 car_ims/
-car_annos.mat
+cars_annos.mat
 dataset/
+trainings/
