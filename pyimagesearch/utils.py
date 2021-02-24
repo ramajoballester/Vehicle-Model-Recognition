@@ -79,7 +79,7 @@ def plot_training(H, plotPath):
 ##########################################################
 ##### Own utils functions #####
 ##########################################################
-def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, img_resolution=(960,640), crop=True):
+def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, img_resolution=(960,640), crop=True, greyscale=False):
     os.chdir(os.path.join(root_dir, 'dataset'))
     trainX = []
     trainY = []
@@ -105,8 +105,10 @@ def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, i
         for each_img in train_img_filename:
             img = cv2.imread(each_img)
             # OpenCV loads images to BGR by default (modify this to RGB)
-#             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            if greyscale:
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            else:
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             csv_filename = each_img.split('.')[0] + '.csv'
             with open(csv_filename) as csvfile:
                 reader = csv.reader(csvfile)
@@ -124,7 +126,10 @@ def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, i
             img = cv2.imread(each_img)
             # OpenCV loads images to BGR by default (modify this to RGB)
 #             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            if greyscale:
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            else:
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             
             csv_filename = each_img.split('.')[0] + '.csv'
             with open(csv_filename) as csvfile:
