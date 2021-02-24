@@ -3,6 +3,7 @@
 
 # In[1]:
 
+
 import tensorflow as tf
 import numpy as np
 import scipy as sp
@@ -16,14 +17,13 @@ import random
 import copy
 
 from pyimagesearch.siamese_network import *
-# from pyimagesearch import config
+from pyimagesearch import config
 from pyimagesearch import utils
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import *
 from tensorflow.keras.callbacks import ModelCheckpoint
+import tensorflow_addons as tfa
 import datetime
-import os
-
 
 # ### Paths
 
@@ -36,8 +36,9 @@ print(ROOT_DIR)
 
 # It should be /home/user/Vehicle-Model-Recognition
 
-# In[3]:
+# ### Dataset parameters
 
+# In[3]:
 
 def create_datetime_dirs(root_dir):
     date = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
@@ -48,43 +49,38 @@ def create_datetime_dirs(root_dir):
     return tb_logs_dir, save_models_dir
 
 
-# ### Dataset parameters
-
-# In[4]:
-
-
-total_classes = 10
-elements_per_class = 75
+total_classes = 50
+elements_per_class = 100
 training_split = 0.75
 img_resolution = (224, 224)
 
 
 # ### Training parameters
 
-# In[21]:
+# In[ ]:
 
 
-lr = 1e-5
+lr = 1e-4
 epochs = 5000
-batch_size = 128
+batch_size = 64
 
 
 # ### Load images
 
-# In[12]:
+# In[4]:
 
 
 os.chdir(ROOT_DIR + '/dataset')
 
 
-# In[7]:
+# In[5]:
 
 
 car_names = os.listdir('./')
 car_names.sort()
 
 
-# In[8]:
+# In[6]:
 
 
 labels = random.sample(car_names, k = total_classes)
@@ -92,25 +88,23 @@ labels.sort()
 print(labels)
 
 
-# In[9]:
+# In[7]:
 
 
-(trainX, trainY), (testX, testY), (trainX_bbox, testX_bbox) = utils.load_dataset(ROOT_DIR, labels, elements_per_class, img_resolution=img_resolution,
-                                                                                 crop=False, greyscale=False)
+(trainX, trainY), (testX, testY), (trainX_bbox, testX_bbox) = utils.load_dataset(ROOT_DIR, labels, elements_per_class, img_resolution=img_resolution, crop=True)
 trainX = np.asarray(trainX)
 trainY = np.asarray(trainY)
 testX = np.asarray(testX)
 testY = np.asarray(testY)
-trainX.shape
 
 
-# In[13]:
+# In[8]:
 
 
 plt.imshow(trainX[0])
 
 
-# In[14]:
+# In[9]:
 
 
 # add a channel dimension to the images
@@ -120,62 +114,55 @@ print(trainX.shape)
 print(testX.shape)
 
 
-# In[15]:
+# In[10]:
 
 
 norm_trainY = utils.normalize_labels(trainY)
 norm_testY = utils.normalize_labels(testY)
 
 
-# In[16]:
+# In[11]:
 
 
-oh_train = tf.one_hot(norm_trainY, len(np.unique(norm_trainY)))
-oh_test = tf.one_hot(norm_testY, len(np.unique(norm_testY)))
+# prepare the positive and negative pairs
+print("[INFO] preparing positive and negative pairs...")
+(pairTrain, labelTrain) = utils.make_pairs(trainX, norm_trainY)
+(pairTest, labelTest) = utils.make_pairs(testX, norm_testY)
 
 
-# In[17]:
+# In[12]:
 
 
-vgg16 = tf.keras.applications.VGG16(include_top=True, weights=None,input_shape=trainX.shape[1:4], classes=total_classes)
 
 
-# In[18]:
+# In[13]:
 
 
-vgg16 = build_vgg16(trainX.shape[1:4])
+# configure the siamese network
+print("[INFO] building siamese network...")
+imgA = Input(shape=trainX.shape[1:4])
+imgB = Input(shape=trainX.shape[1:4])
+# featureExtractor = build_siamese_model((img_resolution[0], img_resolution[1], 1))
+featureExtractor = build_vgg16(trainX.shape[1:4])
+featsA = featureExtractor(imgA)
+featsB = featureExtractor(imgB)
 
+# finally, construct the siamese network
+# distance = Lambda(utils.euclidean_distance)([featsA, featsB])
+feats = Concatenate()([featsA, featsB])
+feats = Dense(128, activation='relu')(feats)
+distance = Dense(64, activation='relu')(feats)
+outputs = Dense(1, activation="sigmoid")(distance)
+model = Model(inputs=[imgA, imgB], outputs=outputs)
 
-# In[19]:
-
-
-vgg16.summary()
-
-
-# In[20]:
-
-
-inputs = Input(shape=trainX.shape[1:4])
-vgg16_outputs = vgg16(inputs)
-outputs = Dense(len(np.unique(norm_trainY)), activation='relu')(vgg16_outputs)
-model = Model(inputs, outputs)
-
-
-# In[22]:
-
-
+# compile the model
+print("[INFO] compiling model...")
+# model.compile(loss="binary_crossentropy", optimizer="adam",
+# 	metrics=["accuracy"])
 optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
-model.compile(loss='categorical_crossentropy', optimizer=optimizer,
-	metrics=["categorical_accuracy"])
+model.compile(loss=tfa.losses.ContrastiveLoss(), optimizer=optimizer,
+	metrics=["binary_accuracy"])
 
-
-# In[23]:
-
-
-model.summary()
-
-
-# In[24]:
 
 
 class TensorboardCallback(tf.keras.callbacks.Callback):
@@ -185,30 +172,31 @@ class TensorboardCallback(tf.keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         tf.summary.scalar('Train/Loss', logs['loss'], epoch)
-        tf.summary.scalar('Train/Accuracy', logs['categorical_accuracy'], epoch)
+        tf.summary.scalar('Train/Accuracy', logs['binary_accuracy'], epoch)
         tf.summary.scalar('Val/Loss', logs['val_loss'], epoch)
-        tf.summary.scalar('Val/Accuracy', logs['val_categorical_accuracy'], epoch)
+        tf.summary.scalar('Val/Accuracy', logs['val_binary_accuracy'], epoch)
 
-
-# In[ ]:
-
+# In[14]:
 
 TB_LOG_DIR, SAVE_MODELS_DIR = create_datetime_dirs(ROOT_DIR)
 tb_callback = TensorboardCallback(TB_LOG_DIR)
-checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(SAVE_MODELS_DIR, monitor='val_categorical_accuracy', verbose=0, save_best_only=True,
+checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(SAVE_MODELS_DIR, monitor='val_binary_accuracy', verbose=0, save_best_only=True,
                                                            save_weights_only=False, mode='auto', save_freq='epoch')
 
+
+
+
+
+# train the model
+print(' ')
+print("[INFO] training model...")
 history = model.fit(
-	trainX, oh_train,
-	validation_data=(trainX, oh_train),
-	batch_size=batch_size, 
+	[pairTrain[:, 0], pairTrain[:, 1]], labelTrain[:],
+	validation_data=([pairTest[:, 0], pairTest[:, 1]], labelTest[:]),
+	batch_size=batch_size,
 	epochs=epochs,
     callbacks=[tb_callback, checkpoint_callback],
-    verbose=1)
+	verbose=1)
 
 
 # In[ ]:
-
-
-
-
