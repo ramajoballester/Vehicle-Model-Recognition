@@ -1,4 +1,7 @@
 car_ims/
 cars_annos.mat
 dataset/
+logs/
+output/
+pickle/
 trainings/

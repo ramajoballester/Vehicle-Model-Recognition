@@ -23,6 +23,7 @@ from tensorflow.keras.layers import *
 from tensorflow.keras.callbacks import ModelCheckpoint
 import datetime
 import os
+import pickle
 
 
 # ### Paths
@@ -33,10 +34,38 @@ import os
 ROOT_DIR = os.getcwd()
 print(ROOT_DIR)
 
+prev_trainings = os.listdir(os.path.join(ROOT_DIR, 'trainings', 'models'))
+prev_trainings.sort()
 
 # It should be /home/user/Vehicle-Model-Recognition
 
 # In[3]:
+
+
+# ### Dataset parameters
+
+# In[4]:
+
+
+total_classes = 196
+elements_per_class = 200
+training_split = 0.75
+img_resolution = (224, 224)
+
+
+# ### Training parameters
+
+# In[21]:
+
+resume = False
+lr = 1e-4
+epochs = 5000
+batch_size = 128
+
+
+# ### Load images
+
+# In[12]:
 
 
 def create_datetime_dirs(root_dir):
@@ -46,33 +75,6 @@ def create_datetime_dirs(root_dir):
     os.makedirs(tb_logs_dir)
     os.makedirs(save_models_dir)
     return tb_logs_dir, save_models_dir
-
-
-# ### Dataset parameters
-
-# In[4]:
-
-
-total_classes = 10
-elements_per_class = 75
-training_split = 0.75
-img_resolution = (224, 224)
-
-
-# ### Training parameters
-
-# In[21]:
-
-
-lr = 1e-5
-epochs = 5000
-batch_size = 128
-
-
-# ### Load images
-
-# In[12]:
-
 
 os.chdir(ROOT_DIR + '/dataset')
 
@@ -96,7 +98,7 @@ print(labels)
 
 
 (trainX, trainY), (testX, testY), (trainX_bbox, testX_bbox) = utils.load_dataset(ROOT_DIR, labels, elements_per_class, img_resolution=img_resolution,
-                                                                                 crop=False, greyscale=False)
+                                                                                 crop=True, greyscale=False)
 trainX = np.asarray(trainX)
 trainY = np.asarray(trainY)
 testX = np.asarray(testX)
@@ -169,6 +171,9 @@ model.compile(loss='categorical_crossentropy', optimizer=optimizer,
 	metrics=["categorical_accuracy"])
 
 
+if resume:
+    model = tf.keras.models.load_model('/home/alvaro/Vehicle-Model-Recognition/trainings/models/' + prev_trainings[-1])
+
 # In[23]:
 
 
@@ -192,6 +197,14 @@ class TensorboardCallback(tf.keras.callbacks.Callback):
 
 # In[ ]:
 
+if resume:
+    with open(os.path.join(ROOT_DIR, 'pickle', 'train.pickle'), 'rb') as f:
+        trainX, oh_train, testX, oh_test = pickle.load(f)
+        f.close()
+else:
+    with open(os.path.join(ROOT_DIR, 'pickle', 'train.pickle'), 'wb') as f:
+        pickle.dump([trainX, oh_train, testX, oh_test], f)
+        f.close()
 
 TB_LOG_DIR, SAVE_MODELS_DIR = create_datetime_dirs(ROOT_DIR)
 tb_callback = TensorboardCallback(TB_LOG_DIR)
@@ -200,15 +213,11 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(SAVE_MODELS_DIR, monito
 
 history = model.fit(
 	trainX, oh_train,
-	validation_data=(trainX, oh_train),
-	batch_size=batch_size, 
+	validation_data=(testX, oh_test),
+	batch_size=batch_size,
 	epochs=epochs,
     callbacks=[tb_callback, checkpoint_callback],
     verbose=1)
 
 
 # In[ ]:
-
-
-
-
