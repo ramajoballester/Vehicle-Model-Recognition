@@ -6,3 +6,4 @@ opencv-python
 datetime
 tensorboard
 tensorflow_addons
+gitpython

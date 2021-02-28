@@ -7,6 +7,7 @@ import csv
 import random
 import copy
 import cv2
+import git
 
 def make_pairs(images, labels):
 	# initialize two empty lists to hold the (image, image) pairs and
@@ -79,7 +80,8 @@ def plot_training(H, plotPath):
 ##########################################################
 ##### Own utils functions #####
 ##########################################################
-def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, img_resolution=(960,640), crop=True, greyscale=False):
+def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75,
+                    img_resolution=(960,640), crop=True, greyscale=False, random=False):
     os.chdir(os.path.join(root_dir, 'dataset'))
     trainX = []
     trainY = []
@@ -96,7 +98,10 @@ def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, i
             img_filenames = random.sample(img_filenames, max_elements_per_class)
         else:
             img_filenames = random.sample(img_filenames, elements_per_class)
-        random.shuffle(img_filenames)
+        if random:
+            random.shuffle(img_filenames)
+        else:
+            img_filenames.sort()
         n = len(img_filenames)
         split = round(training_split * n)
         train_img_filename = img_filenames[:split]
@@ -222,3 +227,41 @@ def get_git_root(path):
     git_repo = git.Repo(path, search_parent_directories=True)
     git_root = git_repo.git.rev_parse("--show-toplevel")
     return git_root
+
+def load_data_cfg(path):
+    labels = []
+    with open(os.path.join(path, 'data_cfg.txt'), 'r') as label_file:
+        for row in label_file:
+            labels.append(row.split('\n')[0])
+        label_file.close()
+
+    return labels
+
+def load_train_cfg(path):
+    with open(os.path.join(path, 'train_cfg.txt'), 'r') as train_cfg_file:
+        for row in train_cfg_file:
+            if row.split('\n')[0].split(' ')[0] == 'arch':
+                arch = row.split('\n')[0].split(' ')[1]
+            elif row.split('\n')[0].split(' ')[0] == 'batch_size':
+                batch_size = int(row.split('\n')[0].split(' ')[1])
+            elif row.split('\n')[0].split(' ')[0] == 'lr':
+                lr = float(row.split('\n')[0].split(' ')[1])
+            elif row.split('\n')[0].split(' ')[0] == 'output':
+                output = row.split('\n')[0].split(' ')[1]
+        train_cfg_file.close()
+
+    return [arch, batch_size, lr, output]
+
+
+class Error(Exception):
+    def __init__(self, message):
+        # if message == 0:
+        #     self.message = 'If -resume flag is not set, -data_cfg and -train_cfg directories must be specified'
+        if message == 1:
+            self.message = '-data_cfg directory is not correct. Please introduce a -data_cfg directory of type ./cfg/training_data'
+        if message == 2:
+            self.message = '-train_cfg directory is not correct. Please introduce a -train_cfg directory of type ./cfg/training_data'
+        # if message == 3:
+        #     self.message =
+
+        super().__init__(self.message)
