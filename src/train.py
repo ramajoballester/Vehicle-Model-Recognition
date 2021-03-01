@@ -11,6 +11,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
 # TO-DO
 # -data_cfg, -train_cfg as 'model'
+# Implement last option data_cfg, train_cfg
 
 parser = argparse.ArgumentParser(description='Main Vehicle Model Recognition training program')
 parser.add_argument('-arch', default='VGG16C', help='Network architecture [VGG16A, VGG19]')
@@ -41,7 +42,6 @@ except RuntimeError as e:
 
 
 ROOT_DIR = get_git_root(os.getcwd())
-print(ROOT_DIR)
 
 
 if args.resume:
@@ -77,7 +77,10 @@ if args.resume:
             args.arch = train_cfg[0]
             args.batch_size = train_cfg[1]
             args.lr = train_cfg[2]
-            args.output = train_cfg[3]
+            args.loss = train_cfg[3]
+            args.metrics = train_cfg[4]
+            args.optimizer = train_cfg[5]
+            args.output = train_cfg[6]
         else:
             raise Error(2)
     else:

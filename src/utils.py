@@ -189,19 +189,21 @@ def load_train_cfg(path):
         for row in train_cfg_file:
             if row.split('\n')[0].split(' ')[0] == 'arch':
                 arch = row.split('\n')[0].split(' ')[1]
-            else:
-                if row.split('\n')[0].split(' ')[0] == 'batch_size':
-                    batch_size = int(row.split('\n')[0].split(' ')[1])
-                else:
-                    if row.split('\n')[0].split(' ')[0] == 'lr':
-                        lr = float(row.split('\n')[0].split(' ')[1])
-                    else:
-                        if row.split('\n')[0].split(' ')[0] == 'output':
-                            output = row.split('\n')[0].split(' ')[1]
-        else:
-            train_cfg_file.close()
+            elif row.split('\n')[0].split(' ')[0] == 'batch_size':
+                batch_size = int(row.split('\n')[0].split(' ')[1])
+            elif row.split('\n')[0].split(' ')[0] == 'lr':
+                lr = float(row.split('\n')[0].split(' ')[1])
+            elif row.split('\n')[0].split(' ')[0] == 'loss':
+                loss = float(row.split('\n')[0].split(' ')[1])
+            elif row.split('\n')[0].split(' ')[0] == 'metrics':
+                metrics = float(row.split('\n')[0].split(' ')[1])
+            elif row.split('\n')[0].split(' ')[0] == 'optimizer':
+                optimizer = float(row.split('\n')[0].split(' ')[1])
+            elif row.split('\n')[0].split(' ')[0] == 'output':
+                output = row.split('\n')[0].split(' ')[1]
+        train_cfg_file.close()
 
-    return [arch, batch_size, lr, output]
+    return [arch, batch_size, lr, loss, metrics, optimizer, output]
 
 
 class Error(Exception):
@@ -261,5 +263,8 @@ def save_train_cfg(save_train_dir, args):
         file.write('arch ' + str(args.arch) + ' \n')
         file.write('batch_size ' + str(args.batch_size) + ' \n')
         file.write('lr ' + str(args.lr) + ' \n')
+        file.write('loss ' + str(args.loss) + ' \n')
+        file.write('metrics ' + str(args.metrics) + ' \n')
+        file.write('optimizer ' + str(args.optimizer) + ' \n')
         file.write('output ' + str(args.output) + ' \n')
         file.close()
