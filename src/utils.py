@@ -2,7 +2,14 @@ import tensorflow.keras.backend as K
 import tensorflow as tf
 from tensorflow.keras.layers import *
 import matplotlib.pyplot as plt
-import numpy as np, os, csv, random, copy, cv2, git, datetime
+import numpy as np,
+import os
+import csv
+import random
+import copy
+import cv2
+import git
+import datetime
 
 def make_pairs(images, labels):
     pairImages = []
@@ -20,8 +27,8 @@ def make_pairs(images, labels):
         negImage = images[np.random.choice(negIdx)]
         pairImages.append([currentImage, negImage])
         pairLabels.append([0])
-    else:
-        return (np.array(pairImages), np.array(pairLabels))
+
+    return (np.array(pairImages), np.array(pairLabels))
 
 
 def euclidean_distance(vectors):
@@ -52,22 +59,27 @@ def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, i
     testY = []
     trainX_bbox = []
     testX_bbox = []
+
     for each_dir in labels:
         os.chdir(each_dir)
         img_filenames = [file for file in os.listdir('./') if file.endswith('.jpg')]
         max_elements_per_class = len(img_filenames)
+
         if max_elements_per_class < elements_per_class:
             img_filenames = random.sample(img_filenames, max_elements_per_class)
         else:
             img_filenames = random.sample(img_filenames, elements_per_class)
+
         if random_sample:
             random.shuffle(img_filenames)
         else:
             img_filenames.sort()
+
         n = len(img_filenames)
         split = round(training_split * n)
         train_img_filename = img_filenames[:split]
         test_img_filename = img_filenames[split:]
+
         for each_img in train_img_filename:
             img = cv2.imread(each_img)
             if greyscale:
@@ -80,42 +92,35 @@ def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, i
                 for row in reader:
                     trainX_bbox.append([int(row[0]), int(row[1]), int(row[2]), int(row[3])])
                     trainY.append(int(row[4]))
-                else:
-                    csvfile.close()
+                csvfile.close()
 
             if crop:
                 img = img[trainX_bbox[(-1)][1] - 1:trainX_bbox[(-1)][3] - 1, trainX_bbox[(-1)][0] - 1:trainX_bbox[(-1)][2] - 1]
+            img = cv2.resize(img, img_resolution)
+            trainX.append(img)
+
+        for each_img in test_img_filename:
+            img = cv2.imread(each_img)
+            if greyscale:
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             else:
-                img = cv2.resize(img, img_resolution)
-                trainX.append(img)
-        else:
-            for each_img in test_img_filename:
-                img = cv2.imread(each_img)
-                if greyscale:
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                else:
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                csv_filename = each_img.split('.')[0] + '.csv'
-                with open(csv_filename) as csvfile:
-                    reader = csv.reader(csvfile)
-                    for row in reader:
-                        testX_bbox.append([int(row[0]), int(row[1]), int(row[2]), int(row[3])])
-                        testY.append(int(row[4]))
-                    else:
-                        csvfile.close()
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+            csv_filename = each_img.split('.')[0] + '.csv'
+            with open(csv_filename) as csvfile:
+                reader = csv.reader(csvfile)
+                for row in reader:
+                    testX_bbox.append([int(row[0]), int(row[1]), int(row[2]), int(row[3])])
+                    testY.append(int(row[4]))
+                csvfile.close()
 
                 if crop:
                     img = img[testX_bbox[(-1)][1] - 1:testX_bbox[(-1)][3] - 1, testX_bbox[(-1)][0] - 1:testX_bbox[(-1)][2] - 1]
-                else:
-                    img = cv2.resize(img, img_resolution)
-                    testX.append(img)
-            else:
-                os.chdir('..')
+                img = cv2.resize(img, img_resolution)
+                testX.append(img)
+            os.chdir('..')
 
-    else:
-        return (
-         (
-          trainX, trainY), (testX, testY), (trainX_bbox, testX_bbox))
+    return ((trainX, trainY), (testX, testY), (trainX_bbox, testX_bbox))
 
 
 def normalize_labels(labels):
@@ -126,8 +131,8 @@ def normalize_labels(labels):
         for j in range(len(labels)):
             if sorted_uniq[i] == labels[j]:
                 norm_labels[j] = i
-        else:
-            return norm_labels
+
+    return norm_labels
 
 
 def build_siamese_model(inputShape, embeddingDim=48):
@@ -144,26 +149,48 @@ def build_siamese_model(inputShape, embeddingDim=48):
     return model
 
 
-def build_vgg16(inputShape, embeddingDim=128):
+def build_vgg16(inputShape, embeddingDim=128, config='D'):
     inputs = Input(inputShape)
+
     x = Conv2D(64, (3, 3), padding='same', activation='relu')(inputs)
-    x = MaxPooling2D(pool_size=(2, 2))(x)
+    if config >= 'D':
+        x = Conv2D(64, (3, 3), padding='same', activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2, 2), strides=(2,2))(x)
+
     x = Conv2D(128, (3, 3), padding='same', activation='relu')(x)
-    x = MaxPooling2D(pool_size=(2, 2))(x)
+    if config >= 'D':
+        x = Conv2D(128, (3, 3), padding='same', activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2, 2), strides=(2,2))(x)
+
     x = Conv2D(256, (3, 3), padding='same', activation='relu')(x)
     x = Conv2D(256, (3, 3), padding='same', activation='relu')(x)
-    x = MaxPooling2D(pool_size=(2, 2))(x)
+    if config >= 'D':
+        x = Conv2D(256, (3, 3), padding='same', activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2, 2), strides=(2,2))(x)
+
     x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
     x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
-    x = MaxPooling2D(pool_size=(2, 2))(x)
+    if config >= 'D':
+        x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
+    if config >= 'E':
+        x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2, 2), strides=(2,2))(x)
+
     x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
     x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
-    x = MaxPooling2D(pool_size=(2, 2))(x)
+    if config >= 'D':
+        x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
+    if config >= 'E':
+        x = Conv2D(512, (3, 3), padding='same', activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2, 2), strides=(2,2))(x)
+
     x = Flatten()(x)
     x = Dense(4096, activation='relu')(x)
     x = Dense(4096, activation='relu')(x)
+
     output = Dense(embeddingDim)(x)
-    model = tf.keras.models.Model(inputs, output, name='VGG16_confA')
+    model = tf.keras.models.Model(inputs, output, name='VGG16_conf' + config)
+
     return model
 
 
@@ -176,10 +203,15 @@ def get_git_root(path):
 def load_data_cfg(path):
     labels = []
     with open(os.path.join(path, 'data_cfg.txt'), 'r') as label_file:
+        first = True
         for row in label_file:
-            labels.append(row.split('\n')[0])
-        else:
-            label_file.close()
+            if first:
+                n_elements = row.split('\n')[0].split(' ')[1]
+                first = False
+            else:
+                labels.append(row.split('\n')[0])
+
+        label_file.close()
 
     return labels
 
@@ -232,8 +264,7 @@ def create_datetime_dirs(root_dir):
     os.makedirs(tb_logs_dir)
     os.makedirs(save_models_dir)
     os.makedirs(data_train_dir)
-    return (
-     tb_logs_dir, save_models_dir, data_train_dir)
+    return (tb_logs_dir, save_models_dir, data_train_dir)
 
 
 class TensorboardCallback(tf.keras.callbacks.Callback):
@@ -254,8 +285,7 @@ def save_data_cfg(save_data_dir, labels, n_elements):
         file.write('elements ' + str(n_elements) + '\n')
         for each_label in labels:
             file.write(each_label + '\n')
-        else:
-            file.close()
+        file.close()
 
 
 def save_train_cfg(save_train_dir, args):

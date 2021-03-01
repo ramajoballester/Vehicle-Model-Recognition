@@ -14,7 +14,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 # Implement last option data_cfg, train_cfg
 
 parser = argparse.ArgumentParser(description='Main Vehicle Model Recognition training program')
-parser.add_argument('-arch', default='VGG16C', help='Network architecture [VGG16A, VGG19]')
+parser.add_argument('-arch', default='VGG16D', help='Network architecture [VGG16A, VGG19]')
 parser.add_argument('-batch_size', default='16', help='Batch size', type=int)
 parser.add_argument('-data_cfg', default=None, help='Data labels')
 parser.add_argument('-epochs', default='1000', help='Number of training epochs', type=int)
@@ -25,7 +25,7 @@ parser.add_argument('-model', default=None, help='Model path')
 parser.add_argument('-multi', action='store_true', help='Use all available GPUs for training')
 parser.add_argument('-n_classes', default='196', help='Number of different classes', type=int)
 parser.add_argument('-n_elements', default='50', help='Number of different elements per class', type=int)
-parser.add_argument('-optimizer', default='SGD', help='Optimizer for loss reduction')
+parser.add_argument('-optimizer', default='Adam', help='Optimizer for loss reduction')
 parser.add_argument('-output', default='classification', help='Network output [classification, siamese]')
 parser.add_argument('-resume', action='store_true', help='Resume previous training')
 parser.add_argument('-train_cfg', default=None, help='Load training configuration')
@@ -121,11 +121,11 @@ oh_test = tf.one_hot(norm_testY, len(np.unique(norm_testY)))
 
 if not args.model:
     if args.arch == 'VGG16A':
-        vgg16 = build_vgg16(trainX.shape[1:4], embeddingDim=128, 'A')
-    elif args.arch == 'VGG16C':
-        vgg16 = build_vgg16(trainX.shape[1:4], embeddingDim=128, 'C')
+        vgg16 = build_vgg16(trainX.shape[1:4], embeddingDim=128, config='A')
+    elif args.arch == 'VGG16D':
+        vgg16 = build_vgg16(trainX.shape[1:4], embeddingDim=128, config='D')
     elif args.arch == 'VGG16E':
-        vgg16 = build_vgg16(trainX.shape[1:4], embeddingDim=128, 'C')
+        vgg16 = build_vgg16(trainX.shape[1:4], embeddingDim=128, config='E')
     else:
         # Other models, to be implemented
         pass
@@ -186,6 +186,8 @@ ckpt_callback = tf.keras.callbacks.ModelCheckpoint(SAVE_MODELS_DIR, monitor='val
                                                     verbose=0, save_best_only=True,
                                                     save_weights_only=False, mode='auto',
                                                     save_freq='epoch')
+
+print(model.summary())
 
 history = model.fit(trainX, oh_train, validation_data=(testX, oh_test),
 	batch_size=args.batch_size, epochs=args.epochs,
