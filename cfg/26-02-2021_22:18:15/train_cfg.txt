@@ -1,4 +1,0 @@
-arch VGG16A
-batch_size 16
-lr 1e-4
-output classification
