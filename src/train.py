@@ -43,6 +43,8 @@ except RuntimeError as e:
 
 ROOT_DIR = get_git_root(os.getcwd())
 
+print_args(args)
+
 
 if args.resume:
     if not args.data_cfg:
@@ -99,7 +101,6 @@ else:
         args.batch_size = train_cfg[1]
         args.lr = train_cfg[2]
         args.output = train_cfg[3]
-
 
 
 

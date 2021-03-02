@@ -2,7 +2,7 @@ import tensorflow.keras.backend as K
 import tensorflow as tf
 from tensorflow.keras.layers import *
 import matplotlib.pyplot as plt
-import numpy as np,
+import numpy as np
 import os
 import csv
 import random
@@ -118,7 +118,8 @@ def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, i
                     img = img[testX_bbox[(-1)][1] - 1:testX_bbox[(-1)][3] - 1, testX_bbox[(-1)][0] - 1:testX_bbox[(-1)][2] - 1]
                 img = cv2.resize(img, img_resolution)
                 testX.append(img)
-            os.chdir('..')
+
+        os.chdir('..')
 
     return ((trainX, trainY), (testX, testY), (trainX_bbox, testX_bbox))
 
@@ -298,3 +299,17 @@ def save_train_cfg(save_train_dir, args):
         file.write('optimizer ' + str(args.optimizer) + ' \n')
         file.write('output ' + str(args.output) + ' \n')
         file.close()
+
+def print_args(args):
+    print(' ')
+    print('Starting training with parameters:')
+    print('\t Architecture: ' + str(args.arch))
+    print('\t Batch size: ' + str(args.batch_size))
+    print('\t # Epochs: ' + str(args.epochs))
+    print('\t Learning rate: ' + str(args.lr))
+    print('\t Loss function: ' + str(args.loss))
+    print('\t Metrics: ' + str(args.metrics))
+    print('\t # Classes: ' + str(args.n_classes))
+    print('\t # Elements: ' + str(args.n_elements))
+    print('\t Optimizer: ' + str(args.optimizer))
+    print('\t Output: ' + str(args.output))
