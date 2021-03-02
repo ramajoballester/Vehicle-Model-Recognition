@@ -16,16 +16,28 @@ cd Vehicle-Model-Recognition/
 sudo -H pip install -r requirements.txt
 ```
 
-Download the [Stanford Cars Dataset](https://ai.stanford.edu/~jkrause/cars/car_dataset.html) inside ```Vehicle-Model-Recognition/```. The complete dataset can be downloaded directly from [here](http://imagenet.stanford.edu/internal/car196/car_ims.tgz) and the annotation file from [here](http://imagenet.stanford.edu/internal/car196/cars_annos.mat).
+Download and extract the [Stanford Cars Dataset](https://ai.stanford.edu/~jkrause/cars/car_dataset.html) inside ```Vehicle-Model-Recognition/```. The complete dataset can be downloaded directly from [here](http://imagenet.stanford.edu/internal/car196/car_ims.tgz) and the annotation file from [here](http://imagenet.stanford.edu/internal/car196/cars_annos.mat).
 
 ## Dataset preparation 
 
-After downloading and extracting the dataset, run the pydataset_transformation.py Python script to create the dataset directory.
+After extracting the dataset, prepare the dataset directory
 
-## Siamese network training
+```
+python src/pydataset_transformation.py
+```
 
-Run the train_cars.ipynb Jupyter Notebook to train the network. Still under development
+## Network training
 
-## Python version
+Run the script ```train.py```. The training can be customized with the following parameters:
 
-Run the pytrain_cars_classification.py script to train the network.
+- arch: network architecture. VGG16 implemented in 3 configurations [VGG16A, VGG16D, VGG16E].
+- batch_size: batch size for training.
+- epochs: number of epochs.
+- lr: learning rate.
+- loss: loss function [categorical_crossentropy, categorical_hinge, KLD, MSE].
+- metrics: metrics for training visualization [categorical_accuracy].
+- model: path to load the model from (if included).
+- n_classes: number of car models to load for training.
+- n_elements: number of car per model.
+- optimizer: optimizer for loss reduction [Adam, SGD, RMS].
+- resume: resume training flag
