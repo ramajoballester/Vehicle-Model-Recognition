@@ -41,3 +41,10 @@ Run the script ```train.py```. The training can be customized with the following
 - n_elements: number of car per model.
 - optimizer: optimizer for loss reduction [Adam, SGD, RMS].
 - resume: resume training flag
+
+
+E.g., to train de VGG16D network with batch size of 16, 1000 epochs, learning rate of 1e-4, 50 car models and 100 elements per model:
+
+```
+python src/train.py -arch VGG16D -batch_size 16 -epochs 1000 -lr 1e-4 -n_classes 50 -n_elements 100
+```
