@@ -1,4 +1,4 @@
-# Vehicle-Model-Recognition (v0.1)
+# Vehicle-Model-Recognition (v0.2)
 Vehicle model detection using deep siamese networks
 
 ## Installation
