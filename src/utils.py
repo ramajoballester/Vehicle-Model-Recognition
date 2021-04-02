@@ -207,14 +207,14 @@ def load_data_cfg(path):
         first = True
         for row in label_file:
             if first:
-                n_elements = row.split('\n')[0].split(' ')[1]
+                n_elements = int(row.split('\n')[0].split(' ')[1])
                 first = False
             else:
                 labels.append(row.split('\n')[0])
 
         label_file.close()
 
-    return labels
+    return labels, n_elements
 
 
 def load_train_cfg(path):

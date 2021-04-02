@@ -4,7 +4,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from utils import *
-from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.layers import Input, Dense, Flatten
 import datetime
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
@@ -19,6 +19,7 @@ parser.add_argument('-batch_size', default='16', help='Batch size', type=int)
 parser.add_argument('-data_cfg', default=None, help='Data labels')
 parser.add_argument('-epochs', default='1000', help='Number of training epochs', type=int)
 parser.add_argument('-lr', default='1e-4', help='Learning rate', type=float)
+parser.add_argument('-ls', default='0.2', help='Learning rate', type=float)
 parser.add_argument('-loss', default='categorical_crossentropy', help='Loss function')
 parser.add_argument('-metrics', default='categorical_accuracy', help='Metrics for visualization')
 parser.add_argument('-model', default=None, help='Model path')
@@ -42,8 +43,6 @@ except RuntimeError as e:
 
 
 ROOT_DIR = get_git_root(os.getcwd())
-
-print_args(args)
 
 
 if args.resume:
@@ -91,6 +90,7 @@ if args.resume:
 else:
     if args.data_cfg:
         labels, args.n_elements = load_data_cfg(os.path.join(ROOT_DIR, args.data_cfg))
+        args.n_classes = len(labels)
     else:
         car_names = os.listdir(os.path.join(ROOT_DIR, 'dataset'))
         labels = random.sample(car_names, k = args.n_classes)
@@ -103,6 +103,7 @@ else:
         args.output = train_cfg[3]
 
 
+print_args(args)
 
 (trainX, trainY), (testX, testY), (trainX_bbox, testX_bbox) = load_dataset(ROOT_DIR, labels, args.n_elements, img_resolution=(224,224),
                                                                                  crop=True, greyscale=False, random_sample = False)
@@ -122,24 +123,39 @@ oh_test = tf.one_hot(norm_testY, len(np.unique(norm_testY)))
 
 if not args.model:
     if args.arch == 'VGG16A':
-        vgg16 = build_vgg16(trainX.shape[1:4], embeddingDim=128, config='A')
+        model = build_vgg16(trainX.shape[1:4], embeddingDim=128, config='A')
     elif args.arch == 'VGG16D':
-        vgg16 = build_vgg16(trainX.shape[1:4], embeddingDim=128, config='D')
-    elif args.arch == 'VGG16E':
-        vgg16 = build_vgg16(trainX.shape[1:4], embeddingDim=128, config='E')
+        model = build_vgg16(trainX.shape[1:4], embeddingDim=128, config='D')
+    elif args.arch == 'VGG16E' or args.arch == 'VGG19':
+        model = build_vgg16(trainX.shape[1:4], embeddingDim=128, config='E')
+    elif args.arch == 'VGG16_pretrained':
+        model = tf.keras.applications.VGG16(include_top=False, weights='imagenet', input_tensor=None,
+                                    input_shape=trainX.shape[1:4], pooling=None, classes=args.n_classes,
+                                    classifier_activation='softmax')
+        for each_layer in model.layers:
+            each_layer.trainable = False
+
+        x = model.output
+        x = Flatten(name='Flatten_1')(x)
+        x = Dense(4096, activation='relu', name='Dense_1')(x)
+        x = Dense(4096, activation='relu', name='Dense_2')(x)
+        output = Dense(args.n_classes, name='Dense_3')(x)
     else:
         # Other models, to be implemented
         pass
 
-    inputs = Input(shape=trainX.shape[1:4])
-    if args.output == 'classification':
-        outputs = vgg16(inputs)
-        outputs = Dense(len(np.unique(norm_trainY)), activation='relu')(outputs)
-    else:
-        # Other outputs, to be implemented
-        pass
+    # inputs = Input(shape=trainX.shape[1:4])
+    # if args.output == 'classification':
+    #     outputs = model(inputs)
+    #     outputs = Dense(len(np.unique(norm_trainY)), activation='relu')(outputs)
+    # else:
+    #     # Other outputs, to be implemented
+    #     pass
+    #
 
-    model = tf.keras.models.Model(inputs, outputs)
+    model = tf.keras.models.Model(model.inputs, output)
+
+
 
     # Optimizer
     if args.optimizer == 'SGD':
@@ -154,7 +170,7 @@ if not args.model:
 
     # Loss function
     if args.loss == 'categorical_crossentropy':
-        loss = tf.keras.losses.CategoricalCrossentropy()
+        loss = tf.keras.losses.CategoricalCrossentropy(label_smoothing=args.ls)
     elif args.loss == 'categorical_hinge':
         loss = tf.keras.losses.CategoricalHinge()
     elif args.loss == 'KLD':
