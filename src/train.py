@@ -4,7 +4,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from utils import *
-from tensorflow.keras.layers import Input, Dense, Flatten
+from tensorflow.keras.layers import Input, Dense, Flatten, Concatenate
 import datetime
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
@@ -23,7 +23,7 @@ parser.add_argument('-ls', default='0.2', help='Learning rate', type=float)
 parser.add_argument('-loss', default='categorical_crossentropy', help='Loss function')
 parser.add_argument('-metrics', default='categorical_accuracy', help='Metrics for visualization')
 parser.add_argument('-model', default=None, help='Model path')
-parser.add_argument('-multi', action='store_true', help='Use all available GPUs for training')
+parser.add_argument('-multi_gpu', action='store_true', help='Use all available GPUs for training')
 parser.add_argument('-n_classes', default='196', help='Number of different classes', type=int)
 parser.add_argument('-n_elements', default='50', help='Number of different elements per class', type=int)
 parser.add_argument('-optimizer', default='Adam', help='Optimizer for loss reduction')
@@ -117,44 +117,54 @@ testX = np.expand_dims(testX, axis=-1)
 norm_trainY = normalize_labels(trainY)
 norm_testY = normalize_labels(testY)
 
-oh_train = tf.one_hot(norm_trainY, len(np.unique(norm_trainY)))
-oh_test = tf.one_hot(norm_testY, len(np.unique(norm_testY)))
+input_shape = trainX.shape[1:4]
+
+if args.output == 'classification':
+    trainY = tf.one_hot(norm_trainY, len(np.unique(norm_trainY)))
+    testY = tf.one_hot(norm_testY, len(np.unique(norm_testY)))
+if args.output == 'siamese':
+    (trainX, trainY) = make_pairs(trainX, norm_trainY)
+    (testX, testY) = make_pairs(testX, norm_testY)
 
 
 if not args.model:
     if args.arch == 'VGG16A':
-        model = build_vgg16(trainX.shape[1:4], embeddingDim=128, config='A')
+        model = build_vgg16(input_shape, embeddingDim=128, config='A')
     elif args.arch == 'VGG16D':
-        model = build_vgg16(trainX.shape[1:4], embeddingDim=128, config='D')
+        model = build_vgg16(input_shape, embeddingDim=128, config='D')
     elif args.arch == 'VGG16E' or args.arch == 'VGG19':
-        model = build_vgg16(trainX.shape[1:4], embeddingDim=128, config='E')
+        model = build_vgg16(input_shape, embeddingDim=128, config='E')
     elif args.arch == 'VGG16_pretrained':
-        model = tf.keras.applications.VGG16(include_top=False, weights='imagenet', input_tensor=None,
-                                    input_shape=trainX.shape[1:4], pooling=None, classes=args.n_classes,
-                                    classifier_activation='softmax')
+        model = tf.keras.applications.VGG16(include_top=False, weights='imagenet',
+                                    input_shape=input_shape, pooling='max')
         for each_layer in model.layers:
             each_layer.trainable = False
 
-        x = model.output
-        x = Flatten(name='Flatten_1')(x)
-        x = Dense(4096, activation='relu', name='Dense_1')(x)
-        x = Dense(4096, activation='relu', name='Dense_2')(x)
-        output = Dense(args.n_classes, name='Dense_3')(x)
     else:
         # Other models, to be implemented
         pass
 
-    # inputs = Input(shape=trainX.shape[1:4])
-    # if args.output == 'classification':
-    #     outputs = model(inputs)
-    #     outputs = Dense(len(np.unique(norm_trainY)), activation='relu')(outputs)
-    # else:
-    #     # Other outputs, to be implemented
-    #     pass
-    #
 
-    model = tf.keras.models.Model(model.inputs, output)
+    if args.output == 'classification':
+        input = Input(shape=input_shape)
+        output = model(input)
+        output = Flatten(name='Flatten_1')(output)
+        output = Dense(4096, activation='relu', name='Dense_1')(output)
+        output = Dense(4096, activation='relu', name='Dense_2')(output)
+        output = Dense(args.n_classes, activation='softmax', name='Dense_3')(output)
+        model = tf.keras.models.Model(input, output)
 
+    elif args.output == 'siamese':
+        inputA = Input(shape=input_shape)
+        inputB = Input(shape=input_shape)
+        featsA = model(inputA)
+        featsB = model(inputB)
+        # distance = Lambda(utils.euclidean_distance)([featsA, featsB])
+        feats = Concatenate()([featsA, featsB])
+        feats = Dense(4096, activation='relu', name='Dense_1')(feats)
+        output = Dense(4096, activation='relu', name='Dense_2')(feats)
+        output = Dense(1, activation="sigmoid")(output)
+        model = tf.keras.models.Model([inputA, inputB], output)
 
 
     # Optimizer
@@ -169,7 +179,9 @@ if not args.model:
         pass
 
     # Loss function
-    if args.loss == 'categorical_crossentropy':
+    if args.loss == 'binary_crossentropy':
+        loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=args.ls)
+    elif args.loss == 'categorical_crossentropy':
         loss = tf.keras.losses.CategoricalCrossentropy(label_smoothing=args.ls)
     elif args.loss == 'categorical_hinge':
         loss = tf.keras.losses.CategoricalHinge()
@@ -180,8 +192,11 @@ if not args.model:
     else:
         raise Error(4)
 
-    if args.metrics == 'categorical_accuracy':
-        metrics = tf.keras.metrics.categorical_accuracy
+
+    if args.metrics == 'binary_accuracy':
+        metrics = tf.keras.metrics.BinaryAccuracy()
+    elif args.metrics == 'categorical_accuracy':
+        metrics = tf.keras.metrics.CategoricalAccuracy()
     else:
         raise Error(5)
 
@@ -198,7 +213,7 @@ if not args.data_cfg:
 if not args.train_cfg:
     save_train_cfg(DATA_TRAIN_DIR, args)
 
-tb_callback = TensorboardCallback(TB_LOG_DIR)
+tb_callback = TensorboardCallback(TB_LOG_DIR, args.metrics)
 ckpt_callback = tf.keras.callbacks.ModelCheckpoint(SAVE_MODELS_DIR, monitor='val_categorical_accuracy',
                                                     verbose=0, save_best_only=True,
                                                     save_weights_only=False, mode='auto',
@@ -206,6 +221,10 @@ ckpt_callback = tf.keras.callbacks.ModelCheckpoint(SAVE_MODELS_DIR, monitor='val
 
 print(model.summary())
 
-history = model.fit(trainX, oh_train, validation_data=(testX, oh_test),
+if args.output == 'siamese':
+    trainX = [trainX[:, 0], trainX[:, 1]]
+    testX = [testX[:, 0], testX[:, 1]]
+
+history = model.fit(trainX, trainY, validation_data=(testX, testY),
 	batch_size=args.batch_size, epochs=args.epochs,
     callbacks=[tb_callback, ckpt_callback], verbose=1)

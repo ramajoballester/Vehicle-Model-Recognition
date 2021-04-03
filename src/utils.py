@@ -121,6 +121,14 @@ def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, i
 
         os.chdir('..')
 
+    tmp = list(zip(trainX, trainY, trainX_bbox))
+    random.shuffle(tmp)
+    trainX, trainY, trainX_bbox = zip(*tmp)
+
+    tmp = list(zip(testX, testY, testX_bbox))
+    random.shuffle(tmp)
+    testX, testY, testX_bbox = zip(*tmp)
+
     return ((trainX, trainY), (testX, testY), (trainX_bbox, testX_bbox))
 
 
@@ -270,15 +278,16 @@ def create_datetime_dirs(root_dir):
 
 class TensorboardCallback(tf.keras.callbacks.Callback):
 
-    def __init__(self, log_dir):
+    def __init__(self, log_dir, metrics='categorical_accuracy'):
         self.writer = tf.summary.create_file_writer(log_dir)
         self.writer.set_as_default()
+        self.metrics = metrics
 
     def on_epoch_end(self, epoch, logs=None):
         tf.summary.scalar('Train/Loss', logs['loss'], epoch)
-        tf.summary.scalar('Train/Accuracy', logs['categorical_accuracy'], epoch)
+        tf.summary.scalar('Train/Accuracy', logs[self.metrics], epoch)
         tf.summary.scalar('Val/Loss', logs['val_loss'], epoch)
-        tf.summary.scalar('Val/Accuracy', logs['val_categorical_accuracy'], epoch)
+        tf.summary.scalar('Val/Accuracy', logs['val_' + self.metrics], epoch)
 
 
 def save_data_cfg(save_data_dir, labels, n_elements):
