@@ -121,6 +121,7 @@ def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, i
 
         os.chdir('..')
 
+    # Shuffles output
     tmp = list(zip(trainX, trainY, trainX_bbox))
     random.shuffle(tmp)
     trainX, trainY, trainX_bbox = zip(*tmp)

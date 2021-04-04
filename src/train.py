@@ -3,6 +3,7 @@ import git
 import os
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from utils import *
 from tensorflow.keras.layers import Input, Dense, Flatten, Concatenate
 import datetime
@@ -14,14 +15,15 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 # Implement last option data_cfg, train_cfg
 
 parser = argparse.ArgumentParser(description='Main Vehicle Model Recognition training program')
-parser.add_argument('-arch', default='VGG16D', help='Network architecture [VGG16A, VGG19]')
+parser.add_argument('-arch', default='VGG16D', help='Network architecture [VGG16_pretrained, VGG19]')
 parser.add_argument('-batch_size', default='16', help='Batch size', type=int)
-parser.add_argument('-data_cfg', default=None, help='Data labels')
+parser.add_argument('-data_augmentation', action='store_true', help='Data augmentation option')
+parser.add_argument('-data_cfg', default=None, help='Data labels configuration file')
 parser.add_argument('-epochs', default='1000', help='Number of training epochs', type=int)
 parser.add_argument('-lr', default='1e-4', help='Learning rate', type=float)
-parser.add_argument('-ls', default='0.2', help='Learning rate', type=float)
-parser.add_argument('-loss', default='categorical_crossentropy', help='Loss function')
-parser.add_argument('-metrics', default='categorical_accuracy', help='Metrics for visualization')
+parser.add_argument('-ls', default='0.2', help='Label smoothing', type=float)
+parser.add_argument('-loss', default='categorical_crossentropy', help='Loss function [binary_crossentropy, categorical_crossentropy, categorical_hinge, KLD, MSE]')
+parser.add_argument('-metrics', default='categorical_accuracy', help='Metrics for visualization [binary_accuracy, categorical_accuracy]')
 parser.add_argument('-model', default=None, help='Model path')
 parser.add_argument('-multi_gpu', action='store_true', help='Use all available GPUs for training')
 parser.add_argument('-n_classes', default='196', help='Number of different classes', type=int)
@@ -225,6 +227,18 @@ if args.output == 'siamese':
     trainX = [trainX[:, 0], trainX[:, 1]]
     testX = [testX[:, 0], testX[:, 1]]
 
-history = model.fit(trainX, trainY, validation_data=(testX, testY),
-	batch_size=args.batch_size, epochs=args.epochs,
-    callbacks=[tb_callback, ckpt_callback], verbose=1)
+if args.data_augmentation:
+    trainAug = ImageDataGenerator(rotation_range=30, zoom_range=0.15,
+                                width_shift_range=0.2, height_shift_range=0.2,
+                                shear_range=0.15, horizontal_flip=True,
+                                fill_mode="nearest")
+    print(trainX[:,:,:,:,0].shape)
+    trainX = trainAug.flow(trainX[:,:,:,:,0], trainY, shuffle=False, batch_size=args.batch_size)
+
+    history = model.fit(trainX, validation_data=(testX, testY),
+    	batch_size=args.batch_size, epochs=args.epochs,
+        callbacks=[tb_callback, ckpt_callback], verbose=1)
+else:
+    history = model.fit(trainX, trainY, validation_data=(testX, testY),
+    	batch_size=args.batch_size, epochs=args.epochs,
+        callbacks=[tb_callback, ckpt_callback], verbose=1)
