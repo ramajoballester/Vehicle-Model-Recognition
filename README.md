@@ -33,6 +33,7 @@ Run the script ```train.py```. The training can be customized with the following
 - arch: network architecture. VGG16 implemented in 3 configurations [VGG16A, VGG16D, VGG16E].
 - batch_size: batch size for training.
 - data_cfg: data labels configuration file.
+- data_augmentation: data augmentation option.
 - epochs: number of epochs.
 - lr: learning rate.
 - ls: label smoothing.
