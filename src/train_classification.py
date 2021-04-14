@@ -29,7 +29,6 @@ parser.add_argument('-multi_gpu', action='store_true', help='Use all available G
 parser.add_argument('-n_classes', default='196', help='Number of different classes', type=int)
 parser.add_argument('-n_elements', default='50', help='Number of different elements per class', type=int)
 parser.add_argument('-optimizer', default='Adam', help='Optimizer for loss reduction')
-parser.add_argument('-output', default='classification', help='Network output [classification, siamese]')
 parser.add_argument('-resume', action='store_true', help='Resume previous training')
 parser.add_argument('-train_cfg', default=None, help='Load training configuration')
 
@@ -83,7 +82,6 @@ if args.resume:
             args.loss = train_cfg[3]
             args.metrics = train_cfg[4]
             args.optimizer = train_cfg[5]
-            args.output = train_cfg[6]
         else:
             raise Error(2)
     else:
@@ -102,7 +100,6 @@ else:
         args.arch = train_cfg[0]
         args.batch_size = train_cfg[1]
         args.lr = train_cfg[2]
-        args.output = train_cfg[3]
 
 
 print_args(args)
@@ -121,12 +118,8 @@ norm_testY = normalize_labels(testY)
 
 input_shape = trainX.shape[1:4]
 
-if args.output == 'classification':
-    trainY = tf.one_hot(norm_trainY, len(np.unique(norm_trainY)))
-    testY = tf.one_hot(norm_testY, len(np.unique(norm_testY)))
-if args.output == 'siamese':
-    (trainX, trainY) = make_pairs(trainX, norm_trainY)
-    (testX, testY) = make_pairs(testX, norm_testY)
+trainY = tf.one_hot(norm_trainY, len(np.unique(norm_trainY)))
+testY = tf.one_hot(norm_testY, len(np.unique(norm_testY)))
 
 
 if not args.model:
@@ -147,26 +140,13 @@ if not args.model:
         pass
 
 
-    if args.output == 'classification':
-        input = Input(shape=input_shape)
-        output = model(input)
-        output = Flatten(name='Flatten_1')(output)
-        output = Dense(4096, activation='relu', name='Dense_1')(output)
-        output = Dense(4096, activation='relu', name='Dense_2')(output)
-        output = Dense(args.n_classes, activation='softmax', name='Dense_3')(output)
-        model = tf.keras.models.Model(input, output)
-
-    elif args.output == 'siamese':
-        inputA = Input(shape=input_shape)
-        inputB = Input(shape=input_shape)
-        featsA = model(inputA)
-        featsB = model(inputB)
-        # distance = Lambda(utils.euclidean_distance)([featsA, featsB])
-        feats = Concatenate()([featsA, featsB])
-        feats = Dense(4096, activation='relu', name='Dense_1')(feats)
-        output = Dense(4096, activation='relu', name='Dense_2')(feats)
-        output = Dense(1, activation="sigmoid")(output)
-        model = tf.keras.models.Model([inputA, inputB], output)
+    input = Input(shape=input_shape)
+    output = model(input)
+    output = Flatten(name='Flatten_1')(output)
+    output = Dense(4096, activation='relu', name='Dense_1')(output)
+    output = Dense(4096, activation='relu', name='Dense_2')(output)
+    output = Dense(args.n_classes, activation='softmax', name='Dense_3')(output)
+    model = tf.keras.models.Model(input, output)
 
 
     # Optimizer
@@ -223,22 +203,20 @@ ckpt_callback = tf.keras.callbacks.ModelCheckpoint(SAVE_MODELS_DIR, monitor='val
 
 print(model.summary())
 
-if args.output == 'siamese':
-    trainX = [trainX[:, 0], trainX[:, 1]]
-    testX = [testX[:, 0], testX[:, 1]]
 
 if args.data_augmentation:
-    trainAug = ImageDataGenerator(rotation_range=30, zoom_range=0.15,
+    dataAug = ImageDataGenerator(rotation_range=30, zoom_range=0.15,
                                 width_shift_range=0.2, height_shift_range=0.2,
                                 shear_range=0.15, horizontal_flip=True,
                                 fill_mode="nearest")
-    print(trainX[:,:,:,:,0].shape)
-    trainX = trainAug.flow(trainX[:,:,:,:,0], trainY, shuffle=False, batch_size=args.batch_size)
 
-    history = model.fit(trainX, validation_data=(testX, testY),
+    trainAug = dataAug.flow(trainX[:,:,:,:,0], trainY, shuffle=False, batch_size=args.batch_size)
+
+    model.fit(trainAug, validation_data=(testX, testY),
     	batch_size=args.batch_size, epochs=args.epochs,
         callbacks=[tb_callback, ckpt_callback], verbose=1)
+
 else:
-    history = model.fit(trainX, trainY, validation_data=(testX, testY),
+    model.fit(trainX, trainY, validation_data=(testX, testY),
     	batch_size=args.batch_size, epochs=args.epochs,
         callbacks=[tb_callback, ckpt_callback], verbose=1)

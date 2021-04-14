@@ -307,7 +307,6 @@ def save_train_cfg(save_train_dir, args):
         file.write('loss ' + str(args.loss) + ' \n')
         file.write('metrics ' + str(args.metrics) + ' \n')
         file.write('optimizer ' + str(args.optimizer) + ' \n')
-        file.write('output ' + str(args.output) + ' \n')
         file.close()
 
 def print_args(args):
@@ -322,4 +321,3 @@ def print_args(args):
     print('\t # Classes: ' + str(args.n_classes))
     print('\t # Elements: ' + str(args.n_elements))
     print('\t Optimizer: ' + str(args.optimizer))
-    print('\t Output: ' + str(args.output))
