@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from utils import *
-from tensorflow.keras.layers import Input, Dense, Flatten, Concatenate
+from tensorflow.keras.layers import Input, Dense, Flatten, Concatenate, Subtract
 import datetime
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
@@ -15,21 +15,20 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 # Implement last option data_cfg, train_cfg
 
 parser = argparse.ArgumentParser(description='Main Vehicle Model Recognition training program')
-parser.add_argument('-arch', default='VGG16D', help='Network architecture [VGG16_pretrained, VGG19]')
-parser.add_argument('-batch_size', default='16', help='Batch size', type=int)
+parser.add_argument('-arch', default='VGG16_pretrained', help='Network architecture [VGG16_pretrained, VGG19]')
+parser.add_argument('-batch_size', default='64', help='Batch size', type=int)
 parser.add_argument('-data_augmentation', action='store_true', help='Data augmentation option')
 parser.add_argument('-data_cfg', default=None, help='Data labels configuration file')
-parser.add_argument('-epochs', default='1000', help='Number of training epochs', type=int)
+parser.add_argument('-epochs', default='5000', help='Number of training epochs', type=int)
 parser.add_argument('-lr', default='1e-4', help='Learning rate', type=float)
-parser.add_argument('-ls', default='0.2', help='Label smoothing', type=float)
-parser.add_argument('-loss', default='categorical_crossentropy', help='Loss function [binary_crossentropy, categorical_crossentropy, categorical_hinge, KLD, MSE]')
-parser.add_argument('-metrics', default='categorical_accuracy', help='Metrics for visualization [binary_accuracy, categorical_accuracy]')
+parser.add_argument('-ls', default='0.0', help='Label smoothing', type=float)
+parser.add_argument('-loss', default='binary_crossentropy', help='Loss function [binary_crossentropy, categorical_crossentropy, categorical_hinge, KLD, MSE]')
+parser.add_argument('-metrics', default='binary_accuracy', help='Metrics for visualization [binary_accuracy, categorical_accuracy]')
 parser.add_argument('-model', default=None, help='Model path')
 parser.add_argument('-multi_gpu', action='store_true', help='Use all available GPUs for training')
 parser.add_argument('-n_classes', default='196', help='Number of different classes', type=int)
 parser.add_argument('-n_elements', default='50', help='Number of different elements per class', type=int)
 parser.add_argument('-optimizer', default='Adam', help='Optimizer for loss reduction')
-parser.add_argument('-output', default='classification', help='Network output [classification, siamese]')
 parser.add_argument('-resume', action='store_true', help='Resume previous training')
 parser.add_argument('-train_cfg', default=None, help='Load training configuration')
 
@@ -83,7 +82,6 @@ if args.resume:
             args.loss = train_cfg[3]
             args.metrics = train_cfg[4]
             args.optimizer = train_cfg[5]
-            args.output = train_cfg[6]
         else:
             raise Error(2)
     else:
@@ -102,7 +100,6 @@ else:
         args.arch = train_cfg[0]
         args.batch_size = train_cfg[1]
         args.lr = train_cfg[2]
-        args.output = train_cfg[3]
 
 
 print_args(args)
@@ -121,14 +118,11 @@ norm_testY = normalize_labels(testY)
 
 input_shape = trainX.shape[1:4]
 
-if args.output == 'classification':
-    trainY = tf.one_hot(norm_trainY, len(np.unique(norm_trainY)))
-    testY = tf.one_hot(norm_testY, len(np.unique(norm_testY)))
-if args.output == 'siamese':
-    (trainX, trainY) = make_pairs(trainX, norm_trainY)
-    (testX, testY) = make_pairs(testX, norm_testY)
-    trainX = [trainX[:, 0], trainX[:, 1]]
-    testX = [testX[:, 0], testX[:, 1]]
+
+(trainX, trainY) = make_pairs(trainX, norm_trainY)
+(testX, testY) = make_pairs(testX, norm_testY)
+trainX = [trainX[:, 0], trainX[:, 1]]
+testX = [testX[:, 0], testX[:, 1]]
 
 
 if not args.model:
@@ -149,81 +143,28 @@ if not args.model:
         pass
 
 
-    if args.output == 'classification':
-        input = Input(shape=input_shape)
-        output = model(input)
-        output = Flatten(name='Flatten_1')(output)
-        output = Dense(4096, activation='relu', name='Dense_1')(output)
-        output = Dense(4096, activation='relu', name='Dense_2')(output)
-        output = Dense(args.n_classes, activation='softmax', name='Dense_3')(output)
-        model = tf.keras.models.Model(input, output)
-
-    elif args.output == 'siamese':
-        inputA = Input(shape=input_shape)
-        inputB = Input(shape=input_shape)
-        featsA = model(inputA)
-        featsB = model(inputB)
-        # distance = Lambda(utils.euclidean_distance)([featsA, featsB])
-        feats = Concatenate()([featsA, featsB])
-        feats = Dense(4096, activation='relu', name='Dense_1')(feats)
-        output = Dense(4096, activation='relu', name='Dense_2')(feats)
-        output = Dense(1, activation="sigmoid")(output)
-        model = tf.keras.models.Model([inputA, inputB], output)
+    inputA = Input(shape=input_shape)
+    inputB = Input(shape=input_shape)
+    featsA = model(inputA)
+    featsB = model(inputB)
+    # distance = Lambda(utils.euclidean_distance)([featsA, featsB])
+    # feats = Concatenate()([featsA, featsB])
+    feats = Subtract()([featsA, featsB])
+    feats = Dense(4096, activation='relu', name='Dense_1')(feats)
+    output = Dense(4096, activation='relu', name='Dense_2')(feats)
+    output = Dense(1, activation="sigmoid")(output)
+    model = tf.keras.models.Model([input
+    A, inputB], output)
 
 
     # Optimizer
-    if args.optimizer == 'SGD':
-        optimizer = tf.keras.optimizers.SGD(learning_rate=args.lr)
-    elif args.optimizer == 'Adam':
-        optimizer = tf.keras.optimizers.Adam(learning_rate=args.lr)
-    elif args.optimizer == 'RMS':
-        optimizer = tf.keras.optimizers.RMSprop(learning_rate=args.lr)
-    else:
-        raise Error(3)
-        pass
 
     # Loss function
-    if args.loss == 'binary_crossentropy':
-        loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=args.ls)
-    elif args.loss == 'categorical_crossentropy':
-        loss = tf.keras.losses.CategoricalCrossentropy(label_smoothing=args.ls)
-    elif args.loss == 'categorical_hinge':
-        loss = tf.keras.losses.CategoricalHinge()
-    elif args.loss == 'KLD':
-        loss = tf.keras.losses.KLD
-    elif args.loss == 'MSE':
-        loss = tf.keras.losses.MSE
-    else:
-        raise Error(4)
-
-
-    if args.metrics == 'binary_accuracy':
-        metrics = tf.keras.metrics.BinaryAccuracy()
-    elif args.metrics == 'categorical_accuracy':
-        metrics = tf.keras.metrics.CategoricalAccuracy()
-    else:
-        raise Error(5)
-
-    model.compile(loss=loss, optimizer=optimizer, metrics=[metrics])
 
 else:
     tf.keras.models.load_model(args.model)
 
 
-
-TB_LOG_DIR, SAVE_MODELS_DIR, DATA_TRAIN_DIR = create_datetime_dirs(ROOT_DIR)
-if not args.data_cfg:
-    save_data_cfg(DATA_TRAIN_DIR, labels, args.n_elements)
-if not args.train_cfg:
-    save_train_cfg(DATA_TRAIN_DIR, args)
-
-tb_callback = TensorboardCallback(TB_LOG_DIR, args.metrics)
-ckpt_callback = tf.keras.callbacks.ModelCheckpoint(SAVE_MODELS_DIR, monitor='val_categorical_accuracy',
-                                                    verbose=0, save_best_only=True,
-                                                    save_weights_only=False, mode='auto',
-                                                    save_freq='epoch')
-
-print(model.summary())
 
 
 if args.data_augmentation:

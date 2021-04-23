@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from utils import *
-from tensorflow.keras.layers import Input, Dense, Flatten, Concatenate
+from tensorflow.keras.layers import Input, Dense, Flatten, Concatenate, Subtract
 import datetime
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
@@ -22,8 +22,8 @@ parser.add_argument('-data_cfg', default=None, help='Data labels configuration f
 parser.add_argument('-epochs', default='5000', help='Number of training epochs', type=int)
 parser.add_argument('-lr', default='1e-4', help='Learning rate', type=float)
 parser.add_argument('-ls', default='0.0', help='Label smoothing', type=float)
-parser.add_argument('-loss', default='categorical_crossentropy', help='Loss function [binary_crossentropy, categorical_crossentropy, categorical_hinge, KLD, MSE]')
-parser.add_argument('-metrics', default='categorical_accuracy', help='Metrics for visualization [binary_accuracy, categorical_accuracy]')
+parser.add_argument('-loss', default='binary_crossentropy', help='Loss function [binary_crossentropy, categorical_crossentropy, categorical_hinge, KLD, MSE]')
+parser.add_argument('-metrics', default='binary_accuracy', help='Metrics for visualization [binary_accuracy, categorical_accuracy]')
 parser.add_argument('-model', default=None, help='Model path')
 parser.add_argument('-multi_gpu', action='store_true', help='Use all available GPUs for training')
 parser.add_argument('-n_classes', default='196', help='Number of different classes', type=int)
@@ -118,8 +118,11 @@ norm_testY = normalize_labels(testY)
 
 input_shape = trainX.shape[1:4]
 
-trainY = tf.one_hot(norm_trainY, len(np.unique(norm_trainY)))
-testY = tf.one_hot(norm_testY, len(np.unique(norm_testY)))
+
+(trainX, trainY) = make_pairs(trainX, norm_trainY)
+(testX, testY) = make_pairs(testX, norm_testY)
+trainX = [trainX[:, 0], trainX[:, 1]]
+testX = [testX[:, 0], testX[:, 1]]
 
 
 if not args.model:
@@ -140,13 +143,17 @@ if not args.model:
         pass
 
 
-    input = Input(shape=input_shape)
-    output = model(input)
-    output = Flatten(name='Flatten_1')(output)
-    output = Dense(4096, activation='relu', name='Dense_1')(output)
-    output = Dense(4096, activation='relu', name='Dense_2')(output)
-    output = Dense(args.n_classes, activation='softmax', name='Dense_3')(output)
-    model = tf.keras.models.Model(input, output)
+    inputA = Input(shape=input_shape)
+    inputB = Input(shape=input_shape)
+    featsA = model(inputA)
+    featsB = model(inputB)
+    # distance = Lambda(utils.euclidean_distance)([featsA, featsB])
+    # feats = Concatenate()([featsA, featsB])
+    feats = Subtract()([featsA, featsB])
+    feats = Dense(4096, activation='relu', name='Dense_1')(feats)
+    output = Dense(4096, activation='relu', name='Dense_2')(feats)
+    output = Dense(1, activation="sigmoid")(output)
+    model = tf.keras.models.Model([inputA, inputB], output)
 
 
     # Optimizer
