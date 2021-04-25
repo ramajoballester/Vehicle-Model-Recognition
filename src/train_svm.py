@@ -7,6 +7,9 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from utils import *
 from tensorflow.keras.layers import Input, Dense, Flatten, Concatenate, Subtract
 import datetime
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+import sklearn
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
@@ -45,7 +48,7 @@ except RuntimeError as e:
 
 ROOT_DIR = get_git_root(os.getcwd())
 
-
+# Resume training
 if args.resume:
     if not args.data_cfg:
         data_cfg_files = os.listdir(os.path.join(ROOT_DIR, 'cfg'))
@@ -86,7 +89,7 @@ if args.resume:
             raise Error(2)
     else:
         raise Error(2)
-
+# Load data and train cfg's
 else:
     if args.data_cfg:
         labels, args.n_elements = load_data_cfg(os.path.join(ROOT_DIR, args.data_cfg))
@@ -135,8 +138,6 @@ if not args.model:
     elif args.arch == 'VGG16_pretrained':
         model = tf.keras.applications.VGG16(include_top=False, weights='imagenet',
                                     input_shape=input_shape, pooling='max')
-        for each_layer in model.layers:
-            each_layer.trainable = False
 
     else:
         # Other models, to be implemented
@@ -150,36 +151,31 @@ if not args.model:
     # distance = Lambda(utils.euclidean_distance)([featsA, featsB])
     # feats = Concatenate()([featsA, featsB])
     feats = Subtract()([featsA, featsB])
-    feats = Dense(4096, activation='relu', name='Dense_1')(feats)
-    output = Dense(4096, activation='relu', name='Dense_2')(feats)
-    output = Dense(1, activation="sigmoid")(output)
-    model = tf.keras.models.Model([input
-    A, inputB], output)
+    # feats = Dense(4096, activation='relu', name='Dense_1')(feats)
+    # output = Dense(4096, activation='relu', name='Dense_2')(feats)
+    # output = Dense(1, activation="sigmoid")(output)
+    model = tf.keras.models.Model([inputA, inputB], feats)
 
-
-    # Optimizer
-
-    # Loss function
 
 else:
     tf.keras.models.load_model(args.model)
 
 
+trainX = model.predict(trainX)
+testX = model.predict(testX)
+trainY = np.squeeze(trainY, 1)
+testY = np.squeeze(testY, 1)
 
+model.compile()
+svm_model = SVC(kernel='rbf', verbose=True)
+svm_model.fit(trainX, trainY)
 
-if args.data_augmentation:
-    dataAug = ImageDataGenerator(rotation_range=30, zoom_range=0.15,
-                                width_shift_range=0.2, height_shift_range=0.2,
-                                shear_range=0.15, horizontal_flip=True,
-                                fill_mode="nearest")
+trainY_preds = svm_model.predict(trainX)
+testY_preds = svm_model.predict(testX)
+print(accuracy_score(trainY_preds, trainY))
+print(accuracy_score(testY_preds, testY))
 
-    trainAug = dataAug.flow(trainX[:,:,:,:,0], trainY, shuffle=False, batch_size=args.batch_size)
-
-    model.fit(trainAug, validation_data=(testX, testY),
-    	batch_size=args.batch_size, epochs=args.epochs,
-        callbacks=[tb_callback, ckpt_callback], verbose=1)
-
-else:
-    model.fit(trainX, trainY, validation_data=(testX, testY),
-    	batch_size=args.batch_size, epochs=args.epochs,
-        callbacks=[tb_callback, ckpt_callback], verbose=1)
+# Uncomment to save model
+# filename = 'svm_rbf.pickle'
+# with open(filename, 'wb') as file:
+#     pickle.dump(svm_model, file)

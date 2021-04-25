@@ -8,3 +8,4 @@ pickle/
 trainings/
 src/__pycache__
 src/trial_nb
+*.pickle
