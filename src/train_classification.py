@@ -5,8 +5,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from utils import *
-from tensorflow.keras.layers import Input, Dense, Flatten, Concatenate
+from tensorflow.keras.layers import Input, Dense, Flatten, Concatenate, Dropout, AveragePooling2D
 import datetime
+from efficientnet.keras import EfficientNetB0, EfficientNetB3
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
@@ -19,7 +20,9 @@ parser.add_argument('-arch', default='VGG16_pretrained', help='Network architect
 parser.add_argument('-batch_size', default='64', help='Batch size', type=int)
 parser.add_argument('-data_augmentation', action='store_true', help='Data augmentation option')
 parser.add_argument('-data_cfg', default=None, help='Data labels configuration file')
+parser.add_argument('-dropout', default=0.7, help='Dropout rate in last layers', type=float)
 parser.add_argument('-epochs', default='5000', help='Number of training epochs', type=int)
+parser.add_argument('-img_resolution', default='224', help='Image resolution', type=int)
 parser.add_argument('-lr', default='1e-4', help='Learning rate', type=float)
 parser.add_argument('-ls', default='0.0', help='Label smoothing', type=float)
 parser.add_argument('-loss', default='categorical_crossentropy', help='Loss function [binary_crossentropy, categorical_crossentropy, categorical_hinge, KLD, MSE]')
@@ -104,7 +107,7 @@ else:
 
 print_args(args)
 
-(trainX, trainY), (testX, testY), (trainX_bbox, testX_bbox) = load_dataset(ROOT_DIR, labels, args.n_elements, img_resolution=(224,224),
+(trainX, trainY), (testX, testY), (trainX_bbox, testX_bbox) = load_dataset(ROOT_DIR, labels, args.n_elements, img_resolution=(args.img_resolution,args.img_resolution),
                                                                                  crop=True, greyscale=False, random_sample = False)
 trainX = np.asarray(trainX)
 trainY = np.asarray(trainY)
@@ -131,21 +134,36 @@ if not args.model:
         model = build_vgg16(input_shape, embeddingDim=128, config='E')
     elif args.arch == 'VGG16_pretrained':
         model = tf.keras.applications.VGG16(include_top=False, weights='imagenet',
-                                    input_shape=input_shape, pooling='max')
+                                    input_shape=input_shape, pooling=None)
         for each_layer in model.layers:
             each_layer.trainable = False
+
+    elif args.arch == 'EfficientNetB0':
+        model = EfficientNetB0(include_top=False, weights='imagenet',
+                                input_shape=input_shape)
+
 
     else:
         # Other models, to be implemented
         pass
 
-
+    # Own last layers
     input = Input(shape=input_shape)
     output = model(input)
+    output = AveragePooling2D((5,5), name='avg_pool')(output)
+    output = Dropout(args.dropout)(output)
     output = Flatten(name='Flatten_1')(output)
     output = Dense(4096, activation='relu', name='Dense_1')(output)
-    output = Dense(4096, activation='relu', name='Dense_2')(output)
-    output = Dense(args.n_classes, activation='softmax', name='Dense_3')(output)
+    output = Dropout(args.dropout)(output)
+    output = Dense(1000, activation='relu', name='Dense_2')(output)
+
+    # output = AveragePooling2D((5,5), name='avg_pool')(output)
+    # output = AveragePooling2D((2,2), name='avg_pool')(output)
+    # output = Flatten()(output)
+    # output = Dropout(0.7)(output)
+
+    output = Dense(args.n_classes, activation='softmax', name='Dense_output')(output)
+
     model = tf.keras.models.Model(input, output)
 
 
@@ -205,16 +223,21 @@ print(model.summary())
 
 
 if args.data_augmentation:
-    dataAug = ImageDataGenerator(rotation_range=30, zoom_range=0.15,
-                                width_shift_range=0.2, height_shift_range=0.2,
-                                shear_range=0.15, horizontal_flip=True,
-                                fill_mode="nearest")
+    # dataAug = ImageDataGenerator(rotation_range=30, zoom_range=0.15,
+    #                             width_shift_range=0.2, height_shift_range=0.2,
+    #                             shear_range=0.15, horizontal_flip=True,
+    #                             fill_mode="nearest")
+
+    dataAug = ImageDataGenerator(rescale=1./255, rotation_range=20, zoom_range=0.15,
+                                width_shift_range=0.1, height_shift_range=0.1,
+                                shear_range=0.2, horizontal_flip=True,
+                                brightness_range=[0.5, 1.5])
 
     trainAug = dataAug.flow(trainX[:,:,:,:,0], trainY, shuffle=False, batch_size=args.batch_size)
 
     model.fit(trainAug, validation_data=(testX, testY),
     	batch_size=args.batch_size, epochs=args.epochs,
-        callbacks=[tb_callback, ckpt_callback], verbose=1)
+        callbacks=[tb_callback], verbose=1)
 
 else:
     model.fit(trainX, trainY, validation_data=(testX, testY),

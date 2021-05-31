@@ -3,6 +3,7 @@ cars_annos.mat
 cfg/
 dataset/
 logs/
+models/
 output/
 pickle/
 trainings/
