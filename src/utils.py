@@ -53,6 +53,7 @@ def plot_training(H, plotPath):
 
 def load_dataset(root_dir, labels, elements_per_class=15, training_split=0.75, img_resolution=(960, 640), crop=True, greyscale=False, random_sample=False):
     os.chdir(os.path.join(root_dir, 'dataset'))
+#     os.chdir(os.path.join(root_dir, 'veri-wild', 'images', 'train'))
     trainX = []
     trainY = []
     testX = []

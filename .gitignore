@@ -1,5 +1,6 @@
 car_ims/
 cars_annos.mat
+comp_cars/
 cfg/
 dataset/
 logs/
@@ -9,4 +10,6 @@ pickle/
 trainings/
 src/__pycache__
 src/trial_nb
+veri-wild/
 *.pickle
+*.ipynb_checkpoints/
