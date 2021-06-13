@@ -16,7 +16,7 @@ cd Vehicle-Model-Recognition/
 sudo -H pip install -r requirements.txt
 ```
 
-Download and extract the [Stanford Cars Dataset](https://ai.stanford.edu/~jkrause/cars/car_dataset.html) inside ```Vehicle-Model-Recognition/```. The complete dataset can be downloaded directly from [here](http://imagenet.stanford.edu/internal/car196/car_ims.tgz) and the annotation file from [here](http://imagenet.stanford.edu/internal/car196/cars_annos.mat).
+Download and extract the [Stanford Cars Dataset](https://ai.stanford.edu/~jkrause/cars/car_dataset.html) inside ```Vehicle-Model-Recognition/```. The complete dataset can be downloaded directly from [here](http://ai.stanford.edu/~jkrause/car196/car_ims.tgz) and the annotation file from [here](http://imagenet.stanford.edu/internal/car196/cars_annos.mat).
 
 ## Dataset preparation 
 
