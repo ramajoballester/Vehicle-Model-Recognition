@@ -1,59 +1,132 @@
-import tensorflow as tf
 import numpy as np
 import scipy as sp
-import scipy.io
-import matplotlib.pyplot as plt
-import cv2
 import os
 from PIL import Image
-import csv
+from utils import *
+import argparse
+import scipy.io
+from shutil import copyfile
 
-# Read images function
-def load_images(folder):
-    images = []
-    for i in range(1, len(os.listdir(folder)) + 1):
-        filename = format(i, '06d') + '.jpg'
-        img = cv2.imread(os.path.join(folder,filename))
-        # OpenCV loads images to BGR by default (modify this to RGB)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        if img is not None:
-            images.append(img)
-    return images
+parser = argparse.ArgumentParser(description='Create Stanford dataset')
+parser.add_argument('-crop', action='store_true', help='Create cropped images dataset')
+parser.add_argument('-replace', action='store_true', help='Delete raw images')
+
+parser.add_argument('-original_path', default='car_ims', help='Original images path')
+parser.add_argument('-train_path', default=os.path.join('datasets', 'stanford196', 'car_ims', 'train'), help='Train images path')
+parser.add_argument('-val_path', default=os.path.join('datasets', 'stanford196', 'car_ims', 'val'), help='Val images path')
+parser.add_argument('-train_crop_path', default=os.path.join('datasets', 'stanford196', 'car_ims_crop', 'train'), help='Train cropped images path')
+parser.add_argument('-val_crop_path', default=os.path.join('datasets', 'stanford196', 'car_ims_crop', 'val'), help='Val cropped images path')
+
+parser.add_argument('-n_train_mini', default=7, help='Number of images in mini classes', type=int)
+parser.add_argument('-n_val_mini', default=3, help='Number of images in mini classes', type=int)
+parser.add_argument('-train_mini_path', default=os.path.join('datasets', 'stanford196', 'car_ims_mini', 'train'), help='Train mini images path')
+parser.add_argument('-val_mini_path', default=os.path.join('datasets', 'stanford196', 'car_ims_mini', 'val'), help='Val mini images path')
+parser.add_argument('-train_crop_mini_path', default=os.path.join('datasets', 'stanford196', 'car_ims_crop_mini', 'train'), help='Train mini cropped images path')
+parser.add_argument('-val_crop_mini_path', default=os.path.join('datasets', 'stanford196', 'car_ims_crop_mini', 'val'), help='Val mini cropped images path')
+
+args = parser.parse_args()
 
 
-car_images = np.array(load_images('car_ims'), dtype=object)
-annotation_file = sp.io.loadmat('cars_annos.mat')
-img_labels = annotation_file.get('annotations')[0]
-labels = annotation_file.get('class_names')[0]
+ROOT_DIR = get_git_root(os.getcwd())
 
-print('There are %d images from %d car models\n' % (len(img_labels), len(labels)))
+ann_file = os.path.join(ROOT_DIR, 'cars_annos.mat')
+ann_file = sp.io.loadmat(ann_file)
 
-# Names, bounding box and class
-names = np.array([img_labels[i][0][0] for i in range(len(img_labels))])
-top_left_x = np.array([img_labels[i][1][0][0] for i in range(len(img_labels))])
-top_left_y = np.array([img_labels[i][2][0][0] for i in range(len(img_labels))])
-bot_right_x = np.array([img_labels[i][3][0][0] for i in range(len(img_labels))])
-bot_right_y = np.array([img_labels[i][4][0][0] for i in range(len(img_labels))])
-car_class = np.array([img_labels[i][5][0][0] for i in range(len(img_labels))])
-car_test = np.array([img_labels[i][6][0][0] for i in range(len(img_labels))])
+annotations = ann_file.get('annotations')[0]
+labels = ann_file.get('class_names')[0]
 
-# Create subdirectories
-os.makedirs('dataset')
-os.chdir('dataset')
-for each in labels:
-    os.makedirs(each[0]) if each[0] != 'Ram C/V Cargo Van Minivan 2012' else os.makedirs('Ram CV Cargo Van Minivan 2012')
+for i in range(len(labels)):
+    labels[i] = str(labels[i][0]).replace('/', '')
 
-# Create filenames
-img_filenames = [names[i].split('/')[-1] for i in range(len(names))]
-csv_filenames = [names[i].split('/')[-1].split('.')[0] + '.csv' for i in range(len(names))]
 
-# Dump images and save information to folders
-for i in range(len(car_images)):
-    row = [top_left_x[i], top_left_y[i], bot_right_x[i], bot_right_y[i], car_class[i], car_test[i]]
-    os.chdir(labels[car_class[i]-1][0] if labels[car_class[i]-1][0] != 'Ram C/V Cargo Van Minivan 2012' else 'Ram CV Cargo Van Minivan 2012')
-    cv2.imwrite(img_filenames[i], cv2.cvtColor(car_images[i], cv2.COLOR_RGB2BGR))
-    with open(csv_filenames[i], 'w') as file:
-        writer = csv.writer(file)
-        writer.writerow(row)
-        file.close()
-    os.chdir('..')
+labels.sort()
+i_train = 0
+i_test = 0
+i_train_crop = 0
+i_test_crop = 0
+
+for each_row in annotations:
+    img_file = each_row[0][0].split('/')[1]
+    x_min = each_row[1][0][0]
+    y_min = each_row[2][0][0]
+    x_max = each_row[3][0][0]
+    y_max = each_row[4][0][0]
+    label_class = int(each_row[5][0][0])
+    is_test = each_row[6][0][0]
+
+    origin = os.path.join(ROOT_DIR, args.original_path, img_file)
+
+    if args.crop:
+        if is_test:
+            os.makedirs(os.path.join(ROOT_DIR, args.val_crop_path, str(labels[label_class-1])), exist_ok=True)
+            destination = os.path.join(ROOT_DIR, args.val_crop_path, str(labels[label_class-1]), img_file)
+            i_test_crop += 1
+        else:
+            os.makedirs(os.path.join(ROOT_DIR, args.train_crop_path, str(labels[label_class-1])), exist_ok=True)
+            destination = os.path.join(ROOT_DIR, args.train_crop_path, str(labels[label_class-1]), img_file)
+            i_train_crop += 1
+
+        img = Image.open(origin)
+        img = img.resize(size=(x_max-x_min, y_max-y_min), box=(x_min, y_min, x_max, y_max))
+        img.save(destination)
+
+
+    if is_test:
+        os.makedirs(os.path.join(ROOT_DIR, args.val_path, str(labels[label_class-1])), exist_ok=True)
+        destination = os.path.join(ROOT_DIR, args.val_path, str(labels[label_class-1]), img_file)
+        i_test += 1
+    else:
+        os.makedirs(os.path.join(ROOT_DIR, args.train_path, str(labels[label_class-1])), exist_ok=True)
+        destination = os.path.join(ROOT_DIR, args.train_path, str(labels[label_class-1]), img_file)
+        i_train += 1
+
+    if args.replace:
+        os.replace(origin, destination)
+    else:
+        copyfile(origin, destination)
+
+
+for each_class in labels:
+    if args.crop:
+        os.makedirs(os.path.join(ROOT_DIR, args.train_crop_mini_path, each_class), exist_ok=True)
+        os.makedirs(os.path.join(ROOT_DIR, args.val_crop_mini_path, each_class), exist_ok=True)
+        img_files = os.listdir(os.path.join(ROOT_DIR, args.train_crop_path, each_class))
+        img_files.sort()
+        img_files = img_files[:args.n_train_mini]
+        for each_file in img_files:
+            origin = os.path.join(ROOT_DIR, args.train_crop_path, each_class, each_file)
+            destination = os.path.join(ROOT_DIR, args.train_crop_mini_path, each_class, each_file)
+            copyfile(origin, destination)
+
+        img_files = os.listdir(os.path.join(ROOT_DIR, args.val_crop_path, each_class))
+        img_files.sort()
+        img_files = img_files[:args.n_val_mini]
+        for each_file in img_files:
+            origin = os.path.join(ROOT_DIR, args.val_crop_path, each_class, each_file)
+            destination = os.path.join(ROOT_DIR, args.val_crop_mini_path, each_class, each_file)
+            copyfile(origin, destination)
+
+
+    img_files = os.listdir(os.path.join(ROOT_DIR, args.train_path, each_class))
+    img_files.sort()
+    img_files = img_files[:args.n_train_mini]
+    os.makedirs(os.path.join(ROOT_DIR, args.train_mini_path, each_class), exist_ok=True)
+    os.makedirs(os.path.join(ROOT_DIR, args.val_mini_path, each_class), exist_ok=True)
+    for each_file in img_files:
+        origin = os.path.join(ROOT_DIR, args.train_path, each_class, each_file)
+        destination = os.path.join(ROOT_DIR, args.train_mini_path, each_class, each_file)
+        copyfile(origin, destination)
+
+    img_files = os.listdir(os.path.join(ROOT_DIR, args.val_path, each_class))
+    img_files.sort()
+    img_files = img_files[:args.n_val_mini]
+    for each_file in img_files:
+        origin = os.path.join(ROOT_DIR, args.val_path, each_class, each_file)
+        destination = os.path.join(ROOT_DIR, args.val_mini_path, each_class, each_file)
+        copyfile(origin, destination)
+
+
+print('Copied %d train images' % i_train)
+print('Copied %d val images' % i_test)
+print('Copied %d cropped train images' % i_train_crop)
+print('Copied %d cropped val images' % i_test_crop)

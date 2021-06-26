@@ -3,6 +3,7 @@ cars_annos.mat
 comp_cars/
 cfg/
 dataset/
+datasets/
 logs/
 models/
 output/
@@ -13,3 +14,5 @@ src/trial_nb
 veri-wild/
 *.pickle
 *.ipynb_checkpoints/
+*.tgz
+EUjZZqlp_5RHnPxwfQFdn2oB-dARKL5bvpSKBni3x2QUlg
