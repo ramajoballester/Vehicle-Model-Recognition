@@ -38,8 +38,6 @@ labels = ann_file.get('class_names')[0]
 for i in range(len(labels)):
     labels[i] = str(labels[i][0]).replace('/', '')
 
-
-labels.sort()
 i_train = 0
 i_test = 0
 i_train_crop = 0
